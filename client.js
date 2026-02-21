@@ -891,7 +891,7 @@ ${total} ₽ (Доставка до Сочи)
             reply_markup: {
                 inline_keyboard: [
                     [
-                        { text: '📩 Оформить заказ', url: 'https://t.me/MDSDru' }
+                        { text: '📩 Оформить заказ', url: 'https://t.me/adrlogisticsmanager' }
                     ],
                     [
                         { text: '⬅️ Назад', callback_data: 'back_to_menu' }
@@ -932,7 +932,7 @@ _Расчет цены делается исходя из цены товара 
                 {
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: 'Решить проблему', url: 'https://t.me/MDSDru' }]
+                            [{ text: 'Решить проблему', url: 'https://t.me/adrlogisticsmanager' }]
                         ]
                     }
                 });
@@ -1279,5 +1279,6 @@ bot.on('callback_query', (query) => {
 
         return;
     }
+
 
 });
