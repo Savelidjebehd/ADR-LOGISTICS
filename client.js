@@ -632,7 +632,7 @@ bot.on('message', (msg) => {
         {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: '📩 Оформить заказ', url: 'https://t.me/MDSDru' }]
+                    [{ text: '📩 Оформить заказ', url: 'https://t.me/adrlogisticsmanager' }]
                 ]
             }
         }
@@ -842,7 +842,7 @@ if (['Часы/украшения', 'Техника', 'Другое'].includes(t
         {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Связаться с менеджером', url: 'https://t.me/MDSDru' }]
+                    [{ text: 'Связаться с менеджером', url: 'https://t.me/adrlogisticsmanager' }]
                 ]
             }
         }
@@ -1282,3 +1282,4 @@ bot.on('callback_query', (query) => {
 
 
 });
+
