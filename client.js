@@ -306,6 +306,18 @@ if (temp[chatId]?.step === 'nickname') {
     return;
 }
 
+if (temp[chatId]?.promoStep === 'enter_limit') {
+
+    const limit = Number(text);
+    if (isNaN(limit) || limit <= 0)
+        return bot.sendMessage(chatId, 'Введите корректное число');
+
+    temp[chatId].limit = limit;
+    temp[chatId].promoStep = 'choose_category';
+
+    return sendPromoCategory(chatId);
+}
+
 if (temp[chatId]?.promoCheck) {
 
     const promos = loadPromos();
@@ -497,7 +509,7 @@ if (temp[chatId]?.mailingStep === 'write_text') {
                 reply_markup: {
                     keyboard: [
                         ['Главное меню'],
-                        ['База заказов'],
+                        ['📄 База заказов'],
                         ['Назад']
                     ],
                     resize_keyboard: true
@@ -568,7 +580,7 @@ if (temp[chatId]?.filterStatus) {
         );
     }
 
-    return sendOrdersWithButtons(chatId, orders);
+return sendOrdersWithButtons(chatId, orders);
 }
 
 if (temp[chatId]?.filterNickname) {
@@ -576,9 +588,12 @@ if (temp[chatId]?.filterNickname) {
     const nickname = text.replace('@', '').toLowerCase();
 
     const orders = loadOrders()
-        .filter(o => o.nickname.toLowerCase() === nickname);
+        .filter(o =>
+            o.nickname &&
+            o.nickname.trim().toLowerCase() === nickname.trim()
+        );
 
-    temp[chatId] = {}; // сбрасываем режим ввода
+    temp[chatId] = {}; // СБРОС режима
 
     if (!orders.length) {
         return bot.sendMessage(chatId,
@@ -593,6 +608,21 @@ if (temp[chatId]?.filterNickname) {
             }
         );
     }
+
+    sendOrdersWithButtons(chatId, orders);
+
+    return bot.sendMessage(chatId,
+        'Действия:',
+        {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🔁 Другой никнейм', callback_data: 'filter_nickname' }],
+                    [{ text: '⬅ Назад', callback_data: 'back_to_filters' }]
+                ]
+            }
+        }
+    );
+}
 
     if (temp[chatId]?.promoStep === 'enter_name') {
 
@@ -615,23 +645,7 @@ if (temp[chatId]?.filterNickname) {
         ]
     }
 });
-}
-
-    // отправляем заказы
-    sendOrdersWithButtons(chatId, orders);
-
-    // кнопки после списка
-    return bot.sendMessage(chatId,
-        'Действия:',
-        {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: '🔁 Другой никнейм', callback_data: 'filter_nickname' }],
-                    [{ text: '⬅ Назад', callback_data: 'back_to_filters' }]
-                ]
-            }
-        }
-    );
+    
 }
 
 if (temp[chatId]?.filterPrice) {
@@ -694,6 +708,8 @@ if (temp[chatId]?.filterPrice) {
             }
         );
     }
+
+    temp[chatId] = {};
 
     return sendOrdersWithButtons(chatId, filtered);
 }
@@ -775,7 +791,7 @@ if (temp[chatId].field === 'Модель/артикул/ссылку')
     reply_markup: {
         keyboard: [
             ['Главное меню'],
-            ['База заказов']
+            ['📄 База заказов']
         ],
         resize_keyboard: true
     }
@@ -915,26 +931,26 @@ if (text === '💰 Рассчитать стоимость товара') {
     return;
 }
 
+
+
 if (text === '📦 Активные') {
 
     const orders = loadOrders();
 
     const userOrders = orders.filter(order =>
-        order.userId === chatId && order.status !== 'Завершен'
+        String(order.userId) === String(chatId) &&
+        normalizeStatus(order.status) !== 'завершен'
     );
 
     if (!userOrders.length) {
-        bot.sendMessage(chatId, 'У вас нет активных заказов.');
-        return;
+        return bot.sendMessage(chatId, 'У вас нет активных заказов.');
     }
 
     userOrders.forEach(order => {
-
         bot.sendMessage(chatId,
 `📦 Заказ <code>${order.track}</code>  @${order.nickname}
 
-💰 Сумма: ${order.total} ₽
-🛍 Товаров: ${order.items.length}
+💰 Сумма: ${order.total || 0} ₽
 📌 Статус: ${order.status}`,
         {
             parse_mode: 'HTML',
@@ -944,18 +960,21 @@ if (text === '📦 Активные') {
                 ]
             }
         });
-
     });
 
     return;
 }
+
+
 
 if (text === '✅ Завершенные') {
 
     const orders = loadOrders();
 
     const userOrders = orders.filter(order =>
-        order.userId === chatId && order.status === 'Завершен'
+        String(order.userId) === String(chatId) &&
+        order.status &&
+        order.status.trim().toLowerCase() === 'завершен'
     );
 
     if (!userOrders.length) {
@@ -964,12 +983,10 @@ if (text === '✅ Завершенные') {
     }
 
     userOrders.forEach(order => {
-
         bot.sendMessage(chatId,
 `📦 Заказ <code>${order.track}</code>  @${order.nickname}
 
-💰 Сумма: ${order.total} ₽
-🛍 Товаров: ${order.items.length}
+💰 Сумма: ${order.total || 0} ₽
 📌 Статус: ${order.status}`,
         {
             parse_mode: 'HTML',
@@ -979,70 +996,70 @@ if (text === '✅ Завершенные') {
                 ]
             }
         });
-
     });
 
     return;
 }
 
+
     
     // ===== ВЫБОР ТИПА =====
-    if (temp[chatId]?.calcStep === 'chooseType') {
+if (temp[chatId]?.calcStep === 'chooseType') {
 
-        if (text === '⬅️ Назад') {
-            temp[chatId] = {};
-            bot.sendMessage(chatId,
-                `💰 Выберите тип товара:`,
-                {
-                    reply_markup: {
-                        keyboard: [
-                            ['Одежда'],
-                            ['Обувь'],
-                            ['Часы/украшения'],
-                            ['Техника'],
-                            ['Другое'],
-                            ['⬅️ Назад']
-                        ],
-                        resize_keyboard: true
-                    }
-                });
-            return;
-        }
-
-        if (text === 'Одежда') {
-            temp[chatId] = { calcStep: 'waitPrice', type: 'clothes' };
-            bot.sendMessage(chatId, 'Напишите стоимость товара в юанях');
-            return;
-        }
-
-        if (text === 'Обувь') {
-            temp[chatId] = { calcStep: 'waitPrice', type: 'shoes' };
-            bot.sendMessage(chatId, 'Напишите стоимость товара в юанях');
-            return;
-        }
-if (['Часы/украшения', 'Техника', 'Другое'].includes(text)) {
-
-    temp[chatId] = {};
-
-    bot.sendMessage(chatId,
-        `Эта категория товаров обсуждается лично с менеджером!`,
-        {
+    if (text === '⬅️ Назад') {
+        temp[chatId] = {};
+        bot.sendMessage(chatId, `💰 Выберите тип товара:`, {
             reply_markup: {
-                inline_keyboard: [
-                    [{ text: 'Связаться с менеджером', url: 'https://t.me/adrlogisticsmanager' }]
-                ]
+                keyboard: [
+                    ['Одежда'],
+                    ['Обувь'],
+                    ['Часы/украшения'],
+                    ['Техника'],
+                    ['Другое'],
+                    ['⬅️ Назад']
+                ],
+                resize_keyboard: true
             }
-        }
-    );
+        });
+        return;
+    }
 
-    mainMenu(chatId);
-return;
-    
+    if (text === 'Одежда') {
+        temp[chatId] = { calcStep: 'waitPrice', type: 'clothes' };
+        bot.sendMessage(chatId, 'Напишите стоимость товара в юанях');
+        return;
+    }
+
+    if (text === 'Обувь') {
+        temp[chatId] = { calcStep: 'waitPrice', type: 'shoes' };
+        bot.sendMessage(chatId, 'Напишите стоимость товара в юанях');
+        return;
+    }
+
+    if (['Часы/украшения', 'Техника', 'Другое'].includes(text)) {
+
+        temp[chatId] = {};
+
+        bot.sendMessage(chatId,
+            `Эта категория товаров обсуждается лично с менеджером!`,
+            {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Связаться с менеджером', url: 'https://t.me/adrlogisticsmanager' }]
+                    ]
+                }
+            }
+        );
+
+        mainMenu(chatId);
+        return;
+    }
+
 }
 
-        }
         
-        /// ===== ВВОД ЦЕНЫ =====
+        
+       /// ===== ВВОД ЦЕНЫ =====
 if (temp[chatId]?.calcStep === 'waitPrice') {
 
     const price = Number(text);
@@ -1333,7 +1350,7 @@ if (temp[chatId]?.filterTrack) {
     );
 }
 
-   });
+;
 
 console.log('Единый бот запущен');
 
@@ -1400,16 +1417,15 @@ if (data === 'back_client_orders') {
 `📦 Заказ <code>${order.track}</code>  @${order.nickname}
 
 💰 Сумма: ${order.total} ₽
-🛍 Товаров: ${order.items.length}
 📌 Статус: ${order.status}`,
-        {
-            parse_mode: 'HTML',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: 'Подробнее', callback_data: `client_details_${order.id}` }]
-                ]
-            }
-        });
+{
+    parse_mode: 'HTML',
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: 'Подробнее', callback_data: `client_details_${order.id}` }]
+        ]
+    }
+});
 
     });
 
@@ -1744,17 +1760,7 @@ if (data === 'promo_unlimited') {
     return sendPromoCategory(chatId);
 }
 
-if (temp[chatId]?.promoStep === 'enter_limit') {
 
-    const limit = Number(text);
-    if (isNaN(limit) || limit <= 0)
-        return bot.sendMessage(chatId, 'Введите корректное число');
-
-    temp[chatId].limit = limit;
-    temp[chatId].promoStep = 'choose_category';
-
-    return sendPromoCategory(chatId);
-}
 
 if (temp[chatId]?.promoStep === 'finish_promo') {
 
@@ -1911,9 +1917,6 @@ ${index + 1}. Артикул/ссылка: ${item.article}
     return bot.sendMessage(chatId,
 `📦 Заказ <code>${order.track}</code>
 @${order.nickname}
-
-🛍 Товаров: ${order.items.length}
-
 ${itemsText}
 🚚 Способ доставки: ${order.delivery}
 📍 Адрес: ${order.address || 'Самовывоз'}
@@ -1999,10 +2002,17 @@ ${itemsText}
 }
 
 if (data === 'all_orders') {
-
     temp[chatId] = {};
-
-    return sendOrdersWithButtons(chatId, loadOrders());
+    return bot.sendMessage(chatId, 'Раздел "База заказов"', {
+        reply_markup: {
+            keyboard: [
+                ['Все заказы'],
+                ['Фильтры'],
+                ['Главное меню']
+            ],
+            resize_keyboard: true
+        }
+    });
 }
 
 if (data === 'create_promo') {
@@ -2016,7 +2026,7 @@ if (data === 'create_promo') {
 Используются только:
 "Кириллица, латиница, цифры, БОЛЬШИЕ буквы"`);
 }
-
+});
 });
 
 function sendOrdersWithButtons(chatId, orders) {
@@ -2028,20 +2038,18 @@ function sendOrdersWithButtons(chatId, orders) {
     orders.forEach(order => {
 
         bot.sendMessage(chatId,
-`📦 Заказ <code>${order.track}</code>
+`📦 Заказ <code>${order.track}</code>  @${order.nickname}
 
-👤 @${order.nickname}
-💰 Сумма: ${order.total || 0} ₽
-🛍 Товаров: ${order.items.length}
+💰 Сумма: ${order.total} ₽
 📌 Статус: ${order.status}`,
-        {
-            parse_mode: 'HTML',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: 'Подробнее', callback_data: `details_${order.id}` }]
-                ]
-            }
-        });
+{
+    parse_mode: 'HTML',
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: 'Подробнее', callback_data: `details_${order.id}` }]
+        ]
+    }
+});
 
     });
 }
