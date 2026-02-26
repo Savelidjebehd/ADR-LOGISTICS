@@ -1,6 +1,3 @@
- JS
-Copy
-
 'use strict';
 
 const TelegramBot = require('node-telegram-bot-api');
@@ -45,67 +42,6 @@ const temp = {};
 
 process.on('unhandledRejection', err => console.error('UNHANDLED REJECTION:', err));
 process.on('uncaughtException',  err => console.error('UNCAUGHT EXCEPTION:', err));
-
-// ===== KEYBOARDS =====
-const STATUS_KEYBOARD = {
-    keyboard: [
-        ['В обработке'],
-        ['Отправлен на склад в Китае'],
-        ['Отправлен на склад в Сочи'],
-        ['Готов к получению'],
-        ['Завершен'],
-        ['⬅ Назад']
-    ],
-    resize_keyboard: true
-};
-
-const PRICE_KEYBOARD = {
-    keyboard: [
-        ['0 - 5 000 ₽'],
-        ['5 000 - 10 000 ₽'],
-        ['10 000 - 15 000 ₽'],
-        ['15 000 - 20 000 ₽'],
-        ['+ 20 000 ₽'],
-        ['⬅ Назад']
-    ],
-    resize_keyboard: true
-};
-
-const FILTERS_KEYBOARD = {
-    keyboard: [
-        ['По статусу заказа'],
-        ['По никнейму'],
-        ['По цене'],
-        ['По трек номеру'],
-        ['⬅ Назад']
-    ],
-    resize_keyboard: true
-};
-
-const ORDERS_BASE_KEYBOARD = {
-    keyboard: [['Все заказы'], ['Фильтры'], ['Главное меню']],
-    resize_keyboard: true
-};
-
-const PROMO_MAIN_KEYBOARD = {
-    keyboard: [
-        ['➕ Создать промокод'],
-        ['🔎 Посмотреть промокод'],
-        ['📋 Все промокоды'],
-        ['Главное меню']
-    ],
-    resize_keyboard: true
-};
-
-const PROMO_LIST_KEYBOARD = {
-    keyboard: [
-        ['🟢 Активные промокоды'],
-        ['🔴 Завершённые промокоды'],
-        ['📋 Показать все'],
-        ['⬅ Назад к промокодам']
-    ],
-    resize_keyboard: true
-};
 
 // ===== MENUS =====
 function mainMenu(chatId) {
@@ -165,58 +101,15 @@ function sendAudienceMenu(chatId) {
     ]}});
 }
 
-// ===== PROMO FORMAT HELPERS =====
-function formatDiscount(promo) {
-    if (promo.discountType === 'percent') return `${promo.discountValue}%`;
-    return `${promo.discountValue}₽`;
-}
-function formatMaxDiscount(promo) {
-    if (promo.discountType === 'percent') {
-        return promo.maxDiscount === null ? 'Безлимит' : `${promo.maxDiscount}₽`;
-    }
-    return null;
-}
-function formatMinSum(promo) {
-    return promo.minSum === null ? '0₽ (Безлимит)' : `${promo.minSum}₽`;
-}
-function promoShortText(promo) {
-    const status = promo.expired ? 'Завершён🔴' : 'Активен🟢';
-    const remaining = promo.limit === null ? '∞' : (promo.limit - promo.used);
-    return `Промокод <code>${promo.code}</code>\n${status}\nРазмер скидки: ${formatDiscount(promo)}\nОсталось применить: ${remaining}`;
-}
-function promoFullText(promo) {
-    const status = promo.expired ? 'Завершён🔴' : 'Активен🟢';
-    const total = promo.limit === null ? '∞' : promo.limit;
-    const remaining = promo.limit === null ? '∞' : (promo.limit - promo.used);
-    let text = `Промокод <code>${promo.code}</code>\n${status}\n\nВсего применений: ${total}\nОсталось применений: ${remaining}\nДействует на: ${promo.category}\nСрок действия: ${promo.expires||'Бессрочно'}\nНачальная сумма действия: ${formatMinSum(promo)}\nРазмер скидки: ${formatDiscount(promo)}`;
-    if (promo.discountType === 'percent' && promo.maxDiscount !== undefined) {
-        text += `\nМаксимальная скидка: ${formatMaxDiscount(promo)}`;
-    }
-    if (promo.comment) text += `\nКомментарий: ${promo.comment}`;
-    return text;
-}
-
 function saveAndSendPromo(chatId) {
     const promos = loadPromos();
-    const d = temp[chatId];
-    const total = d.limit === null ? '∞' : d.limit;
-    const discountStr = d.discountType === 'percent' ? `${d.discountValue}%` : `${d.discountValue}₽`;
-    const maxDiscStr = (d.discountType === 'percent') ? (d.maxDiscount === null ? 'Безлимит' : `${d.maxDiscount}₽`) : '';
-    const minSumStr = d.minSum === null ? '0₽ (Безлимит)' : `${d.minSum}₽`;
-    promos.push({
-        code: d.code, limit: d.limit, used: 0, category: d.category,
-        expires: d.expires || null, comment: d.comment || null,
-        discountType: d.discountType, discountValue: d.discountValue,
-        maxDiscount: d.maxDiscount !== undefined ? d.maxDiscount : null,
-        minSum: d.minSum !== undefined ? d.minSum : null,
-        expired: false, createdAt: Date.now()
-    });
+    promos.push({ code: temp[chatId].code, limit: temp[chatId].limit, used: 0,
+        category: temp[chatId].category, expires: temp[chatId].expires || null,
+        comment: temp[chatId].comment || null, createdAt: Date.now() });
     savePromos(promos);
-    const code = d.code;
+    const code = temp[chatId].code;
     temp[chatId] = {};
-    let msg = `Промокод <code>${code}</code>\n✅ Успешно создан\n\nВсего применений: ${total}\nОсталось применений: ${total}\nДействует на: ${d.category}\nСрок действия: ${d.expires||'Бессрочно'}\nНачальная сумма действия: ${minSumStr}\nРазмер скидки: ${discountStr}`;
-    if (d.discountType === 'percent') msg += `\nМаксимальная скидка: ${maxDiscStr}`;
-    return bot.sendMessage(chatId, msg, { parse_mode: 'HTML', reply_markup: PROMO_MAIN_KEYBOARD });
+    return bot.sendMessage(chatId, '✅ Промокод создан\n\n<code>' + code + '</code>', { parse_mode: 'HTML' });
 }
 
 function finishOrder(chatId) {
@@ -231,11 +124,8 @@ function finishOrder(chatId) {
     }
     const track = generateTrackNumber(orders);
     const total = data.items.reduce((s, i) => s + Number(i.price), 0);
-    const newOrder = {
-        id: Date.now(), userId: clientId, nickname: data.nickname, items: data.items,
-        delivery: data.delivery, address: data.address || null,
-        status: 'В обработке', track, total, createdAt: Date.now()
-    };
+    const newOrder = { id: Date.now(), userId: clientId, nickname: data.nickname, items: data.items,
+        delivery: data.delivery, address: data.address || null, status: 'В обработке', track, total, createdAt: Date.now() };
     orders.push(newOrder);
     saveOrders(orders);
 
@@ -246,10 +136,10 @@ function finishOrder(chatId) {
 
     bot.sendMessage(chatId,
 `📦 <b>Заказ <code>${newOrder.track}</code></b>\n@${newOrder.nickname}\n\n🛍 <b>Товаров:</b> ${newOrder.items.length}\n\n${itemsText}\n🚚 <b>Доставка:</b> ${newOrder.delivery}\n📍 <b>Адрес:</b> ${newOrder.address||'Самовывоз'}\n\n💰 <b>Итого:</b> ${newOrder.total} ₽\n📦 <b>Статус:</b> ${newOrder.status}`,
-        { parse_mode: 'HTML', reply_markup: ORDERS_BASE_KEYBOARD });
+        { parse_mode: 'HTML' });
 
     bot.sendMessage(clientId,
-`Ваш заказ <code>${newOrder.track}</code> Зарегистрирован ✅\nСтатус: В обработке\n<i>Вы можете отследить статус вашего заказа в разделе Мои заказы</i>`,
+`✅ <b>Заказ зарегистрирован!</b>\n\n🛍 Товаров: <b>${newOrder.items.length}</b>\n💰 Сумма: <b>${newOrder.total} ₽</b>\n📦 Статус: <b>${newOrder.status}</b>\n🚚 Трек: <code>${newOrder.track}</code>`,
         { parse_mode: 'HTML' });
 
     temp[chatId] = {};
@@ -276,119 +166,8 @@ bot.on('message', msg => {
     const state = temp[chatId] || {};
 
     if (isAdmin) {
-        if (text === 'Главное меню') { temp[chatId] = {}; return adminMenu(chatId); }
+        if (text === 'Главное меню') return adminMenu(chatId);
         if (text === 'Поддержка') return bot.sendMessage(chatId, '📞 Поддержка: @Savelisb');
-
-        // ===== ФИЛЬТР — ПО СТАТУСУ =====
-        if (state.filterStatus) {
-            const statuses = ['В обработке','Отправлен на склад в Китае','Отправлен на склад в Сочи','Готов к получению','Завершен'];
-            if (text === '⬅ Назад') {
-                temp[chatId] = { inFilters: true };
-                return bot.sendMessage(chatId, 'Выберите фильтр:', { reply_markup: FILTERS_KEYBOARD });
-            }
-            if (statuses.includes(text)) {
-                const filtered = loadOrders().filter(o => o.status === text).sort((a,b) => a.createdAt - b.createdAt);
-                if (!filtered.length) {
-                    return bot.sendMessage(chatId, `📭 Заказов в этом статусе нет\n\nВыберите другой статус:`, { reply_markup: STATUS_KEYBOARD });
-                }
-                sendOrdersWithButtons(chatId, filtered);
-                return bot.sendMessage(chatId, `✅ Найдено заказов: ${filtered.length}\n\nВыберите другой статус или вернитесь назад:`, { reply_markup: STATUS_KEYBOARD });
-            }
-            return;
-        }
-
-        // ===== ФИЛЬТР — ПО ЦЕНЕ =====
-        if (state.filterPrice) {
-            const priceMap = {
-                '0 - 5 000 ₽':       o => (o.total||0) <= 5000,
-                '5 000 - 10 000 ₽':  o => (o.total||0) > 5000  && (o.total||0) <= 10000,
-                '10 000 - 15 000 ₽': o => (o.total||0) > 10000 && (o.total||0) <= 15000,
-                '15 000 - 20 000 ₽': o => (o.total||0) > 15000 && (o.total||0) <= 20000,
-                '+ 20 000 ₽':        o => (o.total||0) > 20000
-            };
-            if (text === '⬅ Назад') {
-                temp[chatId] = { inFilters: true };
-                return bot.sendMessage(chatId, 'Выберите фильтр:', { reply_markup: FILTERS_KEYBOARD });
-            }
-            if (priceMap[text]) {
-                const filtered = loadOrders().filter(priceMap[text]);
-                if (!filtered.length) {
-                    return bot.sendMessage(chatId, `📭 В диапазоне "${text}" заказов нет\n\nВыберите другой диапазон:`, { reply_markup: PRICE_KEYBOARD });
-                }
-                sendOrdersWithButtons(chatId, filtered);
-                return bot.sendMessage(chatId, `✅ Найдено заказов: ${filtered.length}\n\nВыберите другой диапазон или вернитесь назад:`, { reply_markup: PRICE_KEYBOARD });
-            }
-            return;
-        }
-
-        // ===== ФИЛЬТР — ПО НИКНЕЙМУ =====
-        if (state.filterNickname) {
-            if (text === '⬅ Назад') {
-                temp[chatId] = { inFilters: true };
-                return bot.sendMessage(chatId, 'Выберите фильтр:', { reply_markup: FILTERS_KEYBOARD });
-            }
-            if (text === '🔁 Другой никнейм') {
-                return bot.sendMessage(chatId, '👤 Введите юзернейм (@никнейм):', { reply_markup: { keyboard: [['⬅ Назад']], resize_keyboard: true }});
-            }
-            const nickname = text.replace('@','').toLowerCase().trim();
-            const filtered = loadOrders().filter(o => o.nickname && o.nickname.trim().toLowerCase() === nickname);
-            if (!filtered.length) {
-                return bot.sendMessage(chatId, '❌ У пользователя с данным юзернеймом нет заказов', {
-                    reply_markup: { keyboard: [['🔁 Другой никнейм'], ['⬅ Назад']], resize_keyboard: true }
-                });
-            }
-            sendOrdersWithButtons(chatId, filtered);
-            return bot.sendMessage(chatId, `✅ Найдено заказов: ${filtered.length}`, {
-                reply_markup: { keyboard: [['🔁 Другой никнейм'], ['⬅ Назад']], resize_keyboard: true }
-            });
-        }
-
-        // ===== ФИЛЬТР — ПО ТРЕКУ =====
-        if (state.filterTrack) {
-            if (text === '⬅ Назад') {
-                temp[chatId] = { inFilters: true };
-                return bot.sendMessage(chatId, 'Выберите фильтр:', { reply_markup: FILTERS_KEYBOARD });
-            }
-            if (text === '🔁 Другой номер трека') {
-                return bot.sendMessage(chatId, '🔍 Введите номер трека (например: ABCD EFGH):', { reply_markup: { keyboard: [['⬅ Назад']], resize_keyboard: true }});
-            }
-            const track = text.trim().toUpperCase();
-            const filtered = loadOrders().filter(o => o.track === track);
-            if (!filtered.length) {
-                return bot.sendMessage(chatId, '❌ С этим номером трека заказа нет', {
-                    reply_markup: { keyboard: [['🔁 Другой номер трека'], ['⬅ Назад']], resize_keyboard: true }
-                });
-            }
-            sendOrdersWithButtons(chatId, filtered);
-            return bot.sendMessage(chatId, '✅ Заказ найден', {
-                reply_markup: { keyboard: [['🔁 Другой номер трека'], ['⬅ Назад']], resize_keyboard: true }
-            });
-        }
-
-        // ===== МЕНЮ ФИЛЬТРОВ =====
-        if (state.inFilters) {
-            if (text === '⬅ Назад') {
-                temp[chatId] = {};
-                return bot.sendMessage(chatId, 'Раздел "База заказов"', { reply_markup: ORDERS_BASE_KEYBOARD });
-            }
-            if (text === 'По статусу заказа') {
-                temp[chatId] = { filterStatus: true };
-                return bot.sendMessage(chatId, 'Выберите статус заказа:', { reply_markup: STATUS_KEYBOARD });
-            }
-            if (text === 'По никнейму') {
-                temp[chatId] = { filterNickname: true };
-                return bot.sendMessage(chatId, '👤 Введите юзернейм (@никнейм):', { reply_markup: { keyboard: [['⬅ Назад']], resize_keyboard: true }});
-            }
-            if (text === 'По цене') {
-                temp[chatId] = { filterPrice: true };
-                return bot.sendMessage(chatId, 'Выберите диапазон цены:', { reply_markup: PRICE_KEYBOARD });
-            }
-            if (text === 'По трек номеру') {
-                temp[chatId] = { filterTrack: true };
-                return bot.sendMessage(chatId, '🔍 Введите номер трека (например: ABCD EFGH):', { reply_markup: { keyboard: [['⬅ Назад']], resize_keyboard: true }});
-            }
-            return;
-        }
 
         if (text === '📊 Статистика') {
             const users = loadUsers(); const orders = loadOrders(); const promos = loadPromos();
@@ -433,47 +212,11 @@ bot.on('message', msg => {
         }
 
         if (text === '🎁 Промокоды') {
-            return bot.sendMessage(chatId, 'Выберите действие:', { reply_markup: PROMO_MAIN_KEYBOARD });
-        }
-
-        // ===== ПРОМОКОДЫ МЕНЮ =====
-        if (text === '➕ Создать промокод') {
-            temp[chatId] = { promoStep: 'enter_name' };
-            return bot.sendMessage(chatId, 'Введите промокод:\nНапример: "СКИДКА20"\n\nТолько большие буквы и цифры', { reply_markup: { remove_keyboard: true }});
-        }
-        if (text === '🔎 Посмотреть промокод') {
-            temp[chatId] = { promoCheck: true };
-            return bot.sendMessage(chatId, '🔍 Введите промокод для проверки:', { reply_markup: { remove_keyboard: true }});
-        }
-        if (text === '📋 Все промокоды') {
-            return bot.sendMessage(chatId, 'Выберите действие:', { reply_markup: PROMO_LIST_KEYBOARD });
-        }
-        if (text === '⬅ Назад к промокодам') {
-            return bot.sendMessage(chatId, 'Выберите действие:', { reply_markup: PROMO_MAIN_KEYBOARD });
-        }
-        if (text === '📋 Показать все') {
-            const promos = loadPromos();
-            if (!promos.length) return bot.sendMessage(chatId, 'Промокодов нет.', { reply_markup: PROMO_LIST_KEYBOARD });
-            for (const promo of promos) {
-                bot.sendMessage(chatId, promoShortText(promo), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: 'Подробнее', callback_data: `promo_detail_${promo.code}` }]] }});
-            }
-            return;
-        }
-        if (text === '🟢 Активные промокоды') {
-            const promos = loadPromos().filter(p => !p.expired);
-            if (!promos.length) return bot.sendMessage(chatId, 'Активных промокодов нет.', { reply_markup: PROMO_LIST_KEYBOARD });
-            for (const promo of promos) {
-                bot.sendMessage(chatId, promoShortText(promo), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: 'Подробнее', callback_data: `promo_detail_${promo.code}` }]] }});
-            }
-            return;
-        }
-        if (text === '🔴 Завершённые промокоды') {
-            const promos = loadPromos().filter(p => p.expired);
-            if (!promos.length) return bot.sendMessage(chatId, 'Завершённых промокодов нет.', { reply_markup: PROMO_LIST_KEYBOARD });
-            for (const promo of promos) {
-                bot.sendMessage(chatId, promoShortText(promo), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: 'Подробнее', callback_data: `promo_detail_${promo.code}` }]] }});
-            }
-            return;
+            return bot.sendMessage(chatId, '🎁 Раздел промокодов', { reply_markup: { inline_keyboard: [
+                [{ text: '➕ Создать промокод', callback_data: 'create_promo' }],
+                [{ text: '🔎 Проверить промокод', callback_data: 'check_promo' }],
+                [{ text: '⬅ Главное меню', callback_data: 'admin_back_main' }]
+            ]}});
         }
 
         if (text === '🖋️ Зарегистрировать заказ') {
@@ -483,40 +226,32 @@ bot.on('message', msg => {
         }
 
         if (text === '📄 База заказов') {
-            return bot.sendMessage(chatId, 'Выберите действие:', { reply_markup: ORDERS_BASE_KEYBOARD });
+            return bot.sendMessage(chatId, 'Выберите действие:', { reply_markup: { keyboard: [
+                ['Все заказы'], ['Фильтры'], ['Главное меню']
+            ], resize_keyboard: true }});
         }
 
         if (text === 'Все заказы') { temp[chatId] = {}; return sendOrdersWithButtons(chatId, loadOrders()); }
 
         if (text === 'Фильтры') {
-            temp[chatId] = { inFilters: true };
-            return bot.sendMessage(chatId, 'Выберите фильтр:', { reply_markup: FILTERS_KEYBOARD });
+            return bot.sendMessage(chatId, 'Выберите фильтр:', { reply_markup: { inline_keyboard: [
+                [{ text: 'По статусу заказа', callback_data: 'filter_status' }],
+                [{ text: 'По никнейму',        callback_data: 'filter_nickname' }],
+                [{ text: 'По цене',            callback_data: 'filter_price' }],
+                [{ text: 'По трек номеру',     callback_data: 'filter_track' }],
+                [{ text: '⬅ Назад',            callback_data: 'back_to_orders' }]
+            ]}});
         }
 
         // Order registration steps
         if (state.step === 'nickname') {
             temp[chatId].nickname = text.replace('@', '');
             temp[chatId].step = 'products_menu';
-            return bot.sendMessage(chatId, 'Товары', { reply_markup: { inline_keyboard: [
-                [{ text: '➕ Добавить товар', callback_data: 'add_product' }],
-                [{ text: '⬅ Шаг назад',       callback_data: 'step_back_to_nickname' }]
-            ]}});
+            return bot.sendMessage(chatId, 'Товары', { reply_markup: { inline_keyboard: [[{ text: '➕ Добавить товар', callback_data: 'add_product' }]] }});
         }
-        if (state.step === 'item_article') {
-            temp[chatId].currentItem.article = text;
-            temp[chatId].step = 'item_type';
-            return bot.sendMessage(chatId, 'Тип товара (Обувь / Одежда / Другое):', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'step_back_article' }]] }});
-        }
-        if (state.step === 'item_type') {
-            temp[chatId].currentItem.type = text;
-            temp[chatId].step = 'item_size';
-            return bot.sendMessage(chatId, 'Размер:', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'step_back_type' }]] }});
-        }
-        if (state.step === 'item_size') {
-            temp[chatId].currentItem.size = text;
-            temp[chatId].step = 'item_price';
-            return bot.sendMessage(chatId, 'Стоимость (в рублях):', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'step_back_size' }]] }});
-        }
+        if (state.step === 'item_article') { temp[chatId].currentItem.article = text; temp[chatId].step = 'item_type'; return bot.sendMessage(chatId, 'Тип товара (Обувь / Одежда / Другое):'); }
+        if (state.step === 'item_type')    { temp[chatId].currentItem.type = text;    temp[chatId].step = 'item_size';  return bot.sendMessage(chatId, 'Размер:'); }
+        if (state.step === 'item_size')    { temp[chatId].currentItem.size = text;    temp[chatId].step = 'item_price'; return bot.sendMessage(chatId, 'Стоимость (в рублях):'); }
         if (state.step === 'item_price') {
             const price = Number(text);
             if (isNaN(price) || price <= 0) return bot.sendMessage(chatId, '❌ Введите корректную стоимость числом');
@@ -525,16 +260,12 @@ bot.on('message', msg => {
             temp[chatId].currentItem = null;
             temp[chatId].step = 'products_menu';
             return bot.sendMessage(chatId, '✅ Товар добавлен', { reply_markup: { inline_keyboard: [
-                [{ text: '➕ Добавить товар',          callback_data: 'add_product' }],
-                [{ text: '✏ Изменить последний товар',  callback_data: 'edit_last_item' }],
-                [{ text: '➡ Продолжить регистрацию',  callback_data: 'continue_registration' }],
-                [{ text: '⬅ Шаг назад',               callback_data: 'step_back_to_nickname' }]
+                [{ text: '➕ Добавить товар',         callback_data: 'add_product' }],
+                [{ text: '✏ Изменить последний товар', callback_data: 'edit_last_item' }],
+                [{ text: '➡ Продолжить регистрацию', callback_data: 'continue_registration' }]
             ]}});
         }
-        if (state.step === 'enter_address') {
-            temp[chatId].address = text;
-            return finishOrder(chatId);
-        }
+        if (state.step === 'enter_address') { temp[chatId].address = text; return finishOrder(chatId); }
 
         // Promo steps
         if (state.promoStep === 'enter_name') {
@@ -546,34 +277,7 @@ bot.on('message', msg => {
         if (state.promoStep === 'enter_limit') {
             const limit = Number(text);
             if (isNaN(limit) || limit <= 0) return bot.sendMessage(chatId, '❌ Введите корректное число');
-            temp[chatId].limit = limit; temp[chatId].promoStep = 'enter_min_sum';
-            return bot.sendMessage(chatId, 'От какой суммы действует скидка:', { reply_markup: { inline_keyboard: [[{ text: 'Безлимит', callback_data: 'promo_min_sum_unlimited' }]] }});
-        }
-        if (state.promoStep === 'enter_min_sum') {
-            const minSum = Number(text.replace('₽','').trim());
-            if (isNaN(minSum) || minSum < 0) return bot.sendMessage(chatId, '❌ Введите корректную сумму');
-            temp[chatId].minSum = minSum; temp[chatId].promoStep = 'choose_discount_format';
-            return bot.sendMessage(chatId, 'Выберите формат скидки:', { reply_markup: { inline_keyboard: [
-                [{ text: 'В %', callback_data: 'promo_discount_percent' }],
-                [{ text: 'В ₽', callback_data: 'promo_discount_rub' }]
-            ]}});
-        }
-        if (state.promoStep === 'enter_discount_percent') {
-            const num = Number(text.trim().replace('%',''));
-            if (isNaN(num) || num <= 0 || num > 100) return bot.sendMessage(chatId, '❌ Введите корректный процент (например: 20)');
-            temp[chatId].discountValue = num; temp[chatId].promoStep = 'enter_max_discount';
-            return bot.sendMessage(chatId, 'Максимальная сумма скидки (например: 2000₽):', { reply_markup: { inline_keyboard: [[{ text: 'Безлимит', callback_data: 'promo_max_unlimited' }]] }});
-        }
-        if (state.promoStep === 'enter_discount_rub') {
-            const num = Number(text.trim().replace('₽',''));
-            if (isNaN(num) || num <= 0) return bot.sendMessage(chatId, '❌ Введите корректную сумму (например: 2000)');
-            temp[chatId].discountValue = num; temp[chatId].promoStep = 'choose_category';
-            return sendPromoCategory(chatId);
-        }
-        if (state.promoStep === 'enter_max_discount') {
-            const num = Number(text.trim().replace('₽',''));
-            if (isNaN(num) || num <= 0) return bot.sendMessage(chatId, '❌ Введите корректную сумму');
-            temp[chatId].maxDiscount = num; temp[chatId].promoStep = 'choose_category';
+            temp[chatId].limit = limit; temp[chatId].promoStep = 'choose_category';
             return sendPromoCategory(chatId);
         }
         if (state.promoStep === 'enter_date') {
@@ -592,8 +296,17 @@ bot.on('message', msg => {
         if (state.promoCheck) {
             const promo = loadPromos().find(p => p.code === text.trim().toUpperCase());
             temp[chatId] = {};
-            if (!promo) return bot.sendMessage(chatId, '❌ Промокод не найден', { reply_markup: PROMO_MAIN_KEYBOARD });
-            return bot.sendMessage(chatId, promoFullText(promo), { parse_mode: 'HTML', reply_markup: PROMO_MAIN_KEYBOARD });
+            if (!promo) return bot.sendMessage(chatId, '❌ Промокод не найден', { reply_markup: { inline_keyboard: [
+                [{ text: 'Проверить другой', callback_data: 'check_promo' }],
+                [{ text: 'Главное меню',     callback_data: 'admin_back_main' }]
+            ]}});
+            const remaining = promo.limit === null ? '∞' : promo.limit - promo.used;
+            return bot.sendMessage(chatId,
+`🎁 Промокод <code>${promo.code}</code>\n\nПрименений: ${promo.limit||'∞'}\nОсталось: ${remaining}\nДействует на: ${promo.category}\nСрок до: ${promo.expires||'Бессрочно'}\nКомментарий: "${promo.comment||'Нет'}"`,
+                { parse_mode: 'HTML', reply_markup: { inline_keyboard: [
+                    [{ text: 'Проверить другой', callback_data: 'check_promo' }],
+                    [{ text: 'Главное меню',     callback_data: 'admin_back_main' }]
+                ]}});
         }
 
         // Mailing
@@ -610,28 +323,53 @@ bot.on('message', msg => {
             return sendAudienceMenu(chatId);
         }
 
+        // Filters (filterStatus and filterPrice now handled via inline callbacks - fs_* and fp_*)
+
+        if (state.filterNickname) {
+            const nickname = text.replace('@','').toLowerCase().trim();
+            const filtered = loadOrders().filter(o => o.nickname && o.nickname.trim().toLowerCase() === nickname);
+            temp[chatId] = {};
+            if (!filtered.length) return bot.sendMessage(chatId, '❌ Заказы с таким никнеймом не найдены', { reply_markup: { inline_keyboard: [
+                [{ text: '🔁 Другой никнейм', callback_data: 'filter_nickname' }],
+                [{ text: '⬅ Назад',           callback_data: 'back_to_filters' }]
+            ]}});
+            sendOrdersWithButtons(chatId, filtered);
+            return bot.sendMessage(chatId, 'Действия:', { reply_markup: { inline_keyboard: [
+                [{ text: '🔁 Другой никнейм', callback_data: 'filter_nickname' }],
+                [{ text: '⬅ Назад',           callback_data: 'back_to_filters' }]
+            ]}});
+        }
+
+        if (state.filterTrack) {
+            const track = text.trim().toUpperCase();
+            const filtered = loadOrders().filter(o => o.track === track);
+            temp[chatId] = {};
+            if (!filtered.length) return bot.sendMessage(chatId, '❌ Заказ с таким трек-номером не найден', { reply_markup: { inline_keyboard: [
+                [{ text: '🔁 Другой трек', callback_data: 'filter_track' }],
+                [{ text: '⬅ Назад',        callback_data: 'back_to_filters' }]
+            ]}});
+            sendOrdersWithButtons(chatId, filtered);
+            return bot.sendMessage(chatId, 'Действия:', { reply_markup: { inline_keyboard: [
+                [{ text: '🔁 Другой трек', callback_data: 'filter_track' }],
+                [{ text: '⬅ Назад',        callback_data: 'back_to_filters' }]
+            ]}});
+        }
+
+        // (filterPrice is now handled via inline callbacks fp_*)
+
         if (state.changingStatus) {
-            if (text === 'Назад') { temp[chatId] = {}; return bot.sendMessage(chatId, 'Раздел "База заказов"', { reply_markup: ORDERS_BASE_KEYBOARD }); }
+            if (text === 'Назад') { temp[chatId] = {}; return bot.sendMessage(chatId, 'Раздел "База заказов"', { reply_markup: { keyboard: [['Все заказы'],['Фильтры'],['Главное меню']], resize_keyboard: true }}); }
             const orders = loadOrders();
             const order = orders.find(o => o.id === state.selectedOrder);
             if (!order) return;
-            const newStatus = text;
-            order.status = newStatus; saveOrders(orders); temp[chatId] = {};
-            bot.sendMessage(chatId, '✅ Статус обновлен', { reply_markup: ORDERS_BASE_KEYBOARD });
-            if (order.userId) {
-                if (newStatus === 'Завершен') {
-                    bot.sendMessage(order.userId,
-`<b>${order.track} Завершен ✅\nСпасибо за доверие к нашей компании, мы ждем вас снова!</b>`,
-                        { parse_mode: 'HTML' }).catch(()=>{});
-                } else {
-                    bot.sendMessage(order.userId, `🚚 Ваш заказ обновлён!\n\nСтатус: <b>${newStatus}</b>`, { parse_mode: 'HTML' }).catch(()=>{});
-                }
-            }
+            order.status = text; saveOrders(orders); temp[chatId] = {};
+            bot.sendMessage(chatId, '✅ Статус обновлен', { reply_markup: { keyboard: [['Все заказы'],['Фильтры'],['Главное меню']], resize_keyboard: true }});
+            if (order.userId) bot.sendMessage(order.userId, `🚚 Ваш заказ обновлён!\n\nСтатус: <b>${order.status}</b>`, { parse_mode: 'HTML' }).catch(()=>{});
             return;
         }
 
         if (state.editingField) {
-            if (text === 'Назад') { temp[chatId] = {}; return bot.sendMessage(chatId, 'Раздел "База заказов"', { reply_markup: ORDERS_BASE_KEYBOARD }); }
+            if (text === 'Назад') { temp[chatId] = {}; return bot.sendMessage(chatId, 'Раздел "База заказов"', { reply_markup: { keyboard: [['Все заказы'],['Фильтры'],['Главное меню']], resize_keyboard: true }}); }
             temp[chatId].field = text; temp[chatId].editingField = false; temp[chatId].waitingNewValue = true;
             const prompts = { 'Никнейм':'Введите новый никнейм:', 'Тип':'Введите новый тип:', 'Цена':'Введите новую цену:', 'Модель/артикул/ссылку':'Введите новую модель / артикул / ссылку:' };
             return bot.sendMessage(chatId, prompts[text] || 'Введите новое значение:');
@@ -648,7 +386,7 @@ bot.on('message', msg => {
             saveOrders(orders); temp[chatId] = {};
             return bot.sendMessage(chatId,
 `✅ Данные обновлены\n\n@${order.nickname}\nТип: ${order.items[0].type||'не указан'}\nСумма: ${order.total} ₽\nАртикул: ${order.items[0].article||'нет'}\nСтатус: ${order.status}\nТрек: <code>${order.track}</code>`,
-                { parse_mode: 'HTML', reply_markup: ORDERS_BASE_KEYBOARD });
+                { parse_mode: 'HTML', reply_markup: { keyboard: [['Все заказы'],['Фильтры'],['Главное меню']], resize_keyboard: true }});
         }
 
         return; // end admin
@@ -742,61 +480,107 @@ bot.on('callback_query', async query => {
     bot.answerCallbackQuery(query.id).catch(()=>{});
 
     if (data === 'back_main' || data === 'admin_back_main') { temp[chatId] = {}; return ADMIN_IDS.includes(chatId) ? adminMenu(chatId) : mainMenu(chatId); }
-    if (data === 'all_orders') { temp[chatId] = {}; return bot.sendMessage(chatId, 'Раздел "База заказов"', { reply_markup: ORDERS_BASE_KEYBOARD }); }
+    if (data === 'back_to_orders') { temp[chatId] = {}; return bot.sendMessage(chatId, 'Раздел "База заказов"', { reply_markup: { keyboard: [['Все заказы'],['Фильтры'],['Главное меню']], resize_keyboard: true }}); }
+    if (data === 'back_to_filters') { temp[chatId] = {}; return bot.sendMessage(chatId, 'Выберите фильтр:', { reply_markup: { inline_keyboard: [
+        [{ text: 'По статусу заказа', callback_data: 'filter_status' }],
+        [{ text: 'По никнейму',        callback_data: 'filter_nickname' }],
+        [{ text: 'По цене',            callback_data: 'filter_price' }],
+        [{ text: 'По трек номеру',     callback_data: 'filter_track' }],
+        [{ text: '⬅ Назад',            callback_data: 'back_to_orders' }]
+    ]}}); }
+    if (data === 'all_orders') { temp[chatId] = {}; return bot.sendMessage(chatId, 'Раздел "База заказов"', { reply_markup: { keyboard: [['Все заказы'],['Фильтры'],['Главное меню']], resize_keyboard: true }}); }
 
-    if (data === 'cancel_registration') { temp[chatId] = {}; return bot.sendMessage(chatId, '❌ Регистрация отменена', { reply_markup: ORDERS_BASE_KEYBOARD }); }
-
-    if (data === 'add_product') {
-        temp[chatId].currentItem = {};
-        temp[chatId].step = 'item_article';
-        return bot.sendMessage(chatId, 'Артикул / ссылка на товар:', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'step_back_to_products' }]] }});
-    }
+    if (data === 'cancel_registration') { temp[chatId] = {}; return bot.sendMessage(chatId, '❌ Регистрация отменена'); }
+    if (data === 'add_product') { temp[chatId].currentItem = {}; temp[chatId].step = 'item_article'; return bot.sendMessage(chatId, 'Артикул / ссылка на товар:'); }
     if (data === 'edit_last_item') {
         if (!temp[chatId].items || !temp[chatId].items.length) return bot.sendMessage(chatId, '❌ Нет товаров для редактирования');
         temp[chatId].currentItem = temp[chatId].items.pop(); temp[chatId].step = 'item_article';
-        return bot.sendMessage(chatId, `Артикул / ссылка (сейчас: ${temp[chatId].currentItem.article}):`, { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'step_back_to_products' }]] }});
+        return bot.sendMessage(chatId, `Артикул / ссылка (сейчас: ${temp[chatId].currentItem.article}):`);
     }
-
-    if (data === 'step_back_to_nickname') {
-        temp[chatId].step = 'nickname'; temp[chatId].items = [];
-        return bot.sendMessage(chatId, '👤 Юзернейм клиента\n\nПример:\n@client_username',
-            { reply_markup: { inline_keyboard: [[{ text: '❌ Прекратить регистрацию', callback_data: 'cancel_registration' }]] }});
-    }
-    if (data === 'step_back_to_products') {
-        temp[chatId].currentItem = null; temp[chatId].step = 'products_menu';
-        return bot.sendMessage(chatId, 'Товары', { reply_markup: { inline_keyboard: [
-            [{ text: '➕ Добавить товар', callback_data: 'add_product' }],
-            [{ text: '⬅ Шаг назад',       callback_data: 'step_back_to_nickname' }]
-        ]}});
-    }
-    if (data === 'step_back_article') {
-        temp[chatId].step = 'item_article';
-        return bot.sendMessage(chatId, 'Артикул / ссылка на товар:', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'step_back_to_products' }]] }});
-    }
-    if (data === 'step_back_type') {
-        temp[chatId].step = 'item_type';
-        return bot.sendMessage(chatId, 'Тип товара (Обувь / Одежда / Другое):', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'step_back_article' }]] }});
-    }
-    if (data === 'step_back_size') {
-        temp[chatId].step = 'item_size';
-        return bot.sendMessage(chatId, 'Размер:', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'step_back_type' }]] }});
-    }
-
-    if (data === 'continue_registration') {
-        temp[chatId].step = 'choose_delivery';
-        return bot.sendMessage(chatId, 'Способ доставки до получателя:', { reply_markup: { inline_keyboard: [
-            [{ text: 'Доставка до двери в пределах Адлера', callback_data: 'delivery_adler' }],
-            [{ text: 'Самовывоз из офиса',                  callback_data: 'delivery_pickup' }],
-            [{ text: 'Доставка СДЕК/Почта России',          callback_data: 'delivery_post' }],
-            [{ text: '⬅ Шаг назад',                         callback_data: 'step_back_to_products' }]
-        ]}});
-    }
-    if (data === 'delivery_adler')  { temp[chatId].delivery = 'Адлер';      temp[chatId].step = 'enter_address'; return bot.sendMessage(chatId, '📍 Адрес получателя:', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'continue_registration' }]] }}); }
-    if (data === 'delivery_post')   { temp[chatId].delivery = 'Почта/СДЕК'; temp[chatId].step = 'enter_address'; return bot.sendMessage(chatId, '📬 Индекс / адрес доставки:', { reply_markup: { inline_keyboard: [[{ text: '⬅ Шаг назад', callback_data: 'continue_registration' }]] }}); }
+    if (data === 'step_back_to_nickname') { temp[chatId].step = 'nickname'; return bot.sendMessage(chatId, '👤 Юзернейм клиента\n\nПример:\n@client_username'); }
+    if (data === 'continue_registration') { temp[chatId].step = 'choose_delivery'; return bot.sendMessage(chatId, 'Способ доставки до получателя:', { reply_markup: { inline_keyboard: [
+        [{ text: 'Доставка до двери в пределах Адлера', callback_data: 'delivery_adler' }],
+        [{ text: 'Самовывоз из офиса',                  callback_data: 'delivery_pickup' }],
+        [{ text: 'Доставка СДЕК/Почта России',          callback_data: 'delivery_post' }]
+    ]}}); }
+    if (data === 'delivery_adler')  { temp[chatId].delivery = 'Адлер';      temp[chatId].step = 'enter_address'; return bot.sendMessage(chatId, '📍 Адрес получателя:'); }
+    if (data === 'delivery_post')   { temp[chatId].delivery = 'Почта/СДЕК'; temp[chatId].step = 'enter_address'; return bot.sendMessage(chatId, '📬 Индекс / адрес доставки:'); }
     if (data === 'delivery_pickup') { temp[chatId].delivery = 'Самовывоз'; return finishOrder(chatId); }
 
+    if (data === 'filter_status') {
+        temp[chatId] = { filterStatus: true };
+        return bot.sendMessage(chatId, 'Выберите статус:', { reply_markup: { inline_keyboard: [
+            [{ text: 'В обработке',               callback_data: 'fs_В обработке' }],
+            [{ text: 'Отправлен на склад в Китае', callback_data: 'fs_Отправлен на склад в Китае' }],
+            [{ text: 'Отправлен на склад в Сочи',  callback_data: 'fs_Отправлен на склад в Сочи' }],
+            [{ text: 'Готов к получению',          callback_data: 'fs_Готов к получению' }],
+            [{ text: 'Завершен',                   callback_data: 'fs_Завершен' }],
+            [{ text: '⬅ Назад к фильтрам',         callback_data: 'back_to_filters' }]
+        ]}});
+    }
+    if (data === 'filter_nickname') { temp[chatId] = { filterNickname: true }; return bot.sendMessage(chatId, '👤 Введите юзернейм (@никнейм):', { reply_markup: { inline_keyboard: [[{ text: '⬅ Назад', callback_data: 'back_to_filters' }]] }}); }
+    if (data === 'filter_price') {
+        temp[chatId] = { filterPrice: true };
+        return bot.sendMessage(chatId, 'Выберите диапазон цен:', { reply_markup: { inline_keyboard: [
+            [{ text: '0 – 5 000 ₽',       callback_data: 'fp_0-5000' }],
+            [{ text: '5 000 – 10 000 ₽',  callback_data: 'fp_5000-10000' }],
+            [{ text: '10 000 – 15 000 ₽', callback_data: 'fp_10000-15000' }],
+            [{ text: '15 000 – 20 000 ₽', callback_data: 'fp_15000-20000' }],
+            [{ text: '20 000+ ₽',          callback_data: 'fp_20000+' }],
+            [{ text: '⬅ Назад к фильтрам', callback_data: 'back_to_filters' }]
+        ]}});
+    }
+    if (data === 'filter_track') { temp[chatId] = { filterTrack: true }; return bot.sendMessage(chatId, '🔍 Введите трек-номер (например: ABCD EFGH):'); }
+
+    // ===== FILTER BY STATUS (inline, stays open) =====
+    if (data.startsWith('fs_')) {
+        const status = data.slice(3);
+        const filtered = loadOrders().filter(o => o.status === status).sort((a,b) => a.createdAt - b.createdAt);
+        const statusKeyboard = { inline_keyboard: [
+            [{ text: 'В обработке',               callback_data: 'fs_В обработке' }],
+            [{ text: 'Отправлен на склад в Китае', callback_data: 'fs_Отправлен на склад в Китае' }],
+            [{ text: 'Отправлен на склад в Сочи',  callback_data: 'fs_Отправлен на склад в Сочи' }],
+            [{ text: 'Готов к получению',          callback_data: 'fs_Готов к получению' }],
+            [{ text: 'Завершен',                   callback_data: 'fs_Завершен' }],
+            [{ text: '⬅ Назад к фильтрам',         callback_data: 'back_to_filters' }]
+        ]};
+        if (!filtered.length) {
+            return bot.sendMessage(chatId, `📭 В статусе "${status}" заказов нет\n\nВыберите другой статус:`, { reply_markup: statusKeyboard });
+        }
+        sendOrdersWithButtons(chatId, filtered);
+        return bot.sendMessage(chatId, `✅ Найдено заказов: ${filtered.length}\n\nВыберите другой статус или вернитесь назад:`, { reply_markup: statusKeyboard });
+    }
+
+    // ===== FILTER BY PRICE (inline, stays open) =====
+    if (data.startsWith('fp_')) {
+        const range = data.slice(3);
+        const ranges = {
+            '0-5000':      o => (o.total||0) <= 5000,
+            '5000-10000':  o => (o.total||0) > 5000  && (o.total||0) <= 10000,
+            '10000-15000': o => (o.total||0) > 10000 && (o.total||0) <= 15000,
+            '15000-20000': o => (o.total||0) > 15000 && (o.total||0) <= 20000,
+            '20000+':      o => (o.total||0) > 20000
+        };
+        const priceKeyboard = { inline_keyboard: [
+            [{ text: '0 – 5 000 ₽',       callback_data: 'fp_0-5000' }],
+            [{ text: '5 000 – 10 000 ₽',  callback_data: 'fp_5000-10000' }],
+            [{ text: '10 000 – 15 000 ₽', callback_data: 'fp_10000-15000' }],
+            [{ text: '15 000 – 20 000 ₽', callback_data: 'fp_15000-20000' }],
+            [{ text: '20 000+ ₽',          callback_data: 'fp_20000+' }],
+            [{ text: '⬅ Назад к фильтрам', callback_data: 'back_to_filters' }]
+        ]};
+        const fn = ranges[range];
+        if (!fn) return;
+        const filtered = loadOrders().filter(fn);
+        if (!filtered.length) {
+            return bot.sendMessage(chatId, `📭 В диапазоне "${range.replace('-',' – ')} ₽" заказов нет\n\nВыберите другой диапазон:`, { reply_markup: priceKeyboard });
+        }
+        sendOrdersWithButtons(chatId, filtered);
+        return bot.sendMessage(chatId, `✅ Найдено заказов: ${filtered.length}\n\nВыберите другой диапазон или вернитесь назад:`, { reply_markup: priceKeyboard });
+    }
+
     if (data.startsWith('details_')) {
-        const id = Number(data.slice(8));
+        const id = Number(data.split('_')[1]);
         const order = loadOrders().find(o => o.id === id);
         if (!order) return;
         let itemsText = '';
@@ -811,7 +595,7 @@ bot.on('callback_query', async query => {
     }
 
     if (data.startsWith('client_details_')) {
-        const id = Number(data.slice(15));
+        const id = Number(data.split('_')[2]);
         const order = loadOrders().find(o => o.id === id);
         if (!order || String(order.userId) !== String(chatId)) return;
         let itemsText = '';
@@ -824,7 +608,7 @@ bot.on('callback_query', async query => {
     if (data === 'back_client_orders') return sendClientOrders(chatId);
 
     if (data.startsWith('status_')) {
-        const id = Number(data.slice(7));
+        const id = Number(data.split('_')[1]);
         const order = loadOrders().find(o => o.id === id);
         if (!order) return;
         temp[chatId] = { selectedOrder: id, changingStatus: true };
@@ -836,7 +620,7 @@ bot.on('callback_query', async query => {
     }
 
     if (data.startsWith('edit_')) {
-        const id = Number(data.slice(5));
+        const id = Number(data.split('_')[1]);
         if (!loadOrders().find(o => o.id === id)) return;
         temp[chatId] = { selectedOrder: id, editingField: true };
         return bot.sendMessage(chatId, 'Какие данные изменить?', { reply_markup: { keyboard: [
@@ -844,48 +628,17 @@ bot.on('callback_query', async query => {
         ], resize_keyboard: true }});
     }
 
-    // ===== PROMO CALLBACKS =====
-    if (data === 'promo_unlimited') {
-        temp[chatId].limit = null; temp[chatId].promoStep = 'enter_min_sum';
-        return bot.sendMessage(chatId, 'От какой суммы действует скидка:', { reply_markup: { inline_keyboard: [[{ text: 'Безлимит', callback_data: 'promo_min_sum_unlimited' }]] }});
-    }
-    if (data === 'promo_min_sum_unlimited') {
-        temp[chatId].minSum = null; temp[chatId].promoStep = 'choose_discount_format';
-        return bot.sendMessage(chatId, 'Выберите формат скидки:', { reply_markup: { inline_keyboard: [
-            [{ text: 'В %', callback_data: 'promo_discount_percent' }],
-            [{ text: 'В ₽', callback_data: 'promo_discount_rub' }]
-        ]}});
-    }
-    if (data === 'promo_discount_percent') {
-        temp[chatId].discountType = 'percent'; temp[chatId].promoStep = 'enter_discount_percent';
-        return bot.sendMessage(chatId, 'Выберите размер скидки:\nПример: 20%\n(Можно написать без знака %)');
-    }
-    if (data === 'promo_discount_rub') {
-        temp[chatId].discountType = 'rub'; temp[chatId].promoStep = 'enter_discount_rub';
-        return bot.sendMessage(chatId, 'Выберите размер скидки:\nПример: 2000₽\n(Можно написать без знака ₽)');
-    }
-    if (data === 'promo_max_unlimited') {
-        temp[chatId].maxDiscount = null; temp[chatId].promoStep = 'choose_category';
-        return sendPromoCategory(chatId);
-    }
-    if (data === 'promo_no_date') {
-        temp[chatId].expires = null; temp[chatId].promoStep = 'enter_comment';
-        return bot.sendMessage(chatId, 'Комментарий к промокоду:', { reply_markup: { inline_keyboard: [[{ text: 'Без комментария', callback_data: 'promo_no_comment' }]] }});
-    }
+    if (data === 'create_promo') { temp[chatId] = { promoStep: 'enter_name' }; return bot.sendMessage(chatId, 'Введите промокод:\nНапример: "СКИДКА20"\n\nТолько большие буквы и цифры'); }
+    if (data === 'check_promo')  { temp[chatId] = { promoCheck: true }; return bot.sendMessage(chatId, '🔍 Введите промокод для проверки:'); }
+    if (data === 'promo_unlimited') { temp[chatId].limit = null; temp[chatId].promoStep = 'choose_category'; return sendPromoCategory(chatId); }
+    if (data === 'promo_no_date') { temp[chatId].expires = null; temp[chatId].promoStep = 'enter_comment'; return bot.sendMessage(chatId, 'Комментарий к промокоду:', { reply_markup: { inline_keyboard: [[{ text: 'Без комментария', callback_data: 'promo_no_comment' }]] }}); }
     if (data === 'promo_no_comment') { temp[chatId].comment = null; return saveAndSendPromo(chatId); }
     if (data.startsWith('promo_cat_')) {
         if (data === 'promo_cat_custom') { temp[chatId].promoStep = 'custom_category'; return bot.sendMessage(chatId, 'Введите свой вариант категории:'); }
         temp[chatId].category = data.replace('promo_cat_',''); temp[chatId].promoStep = 'enter_date';
         return bot.sendMessage(chatId, 'До какого числа действует промокод?\nФормат: "20.02.2027"', { reply_markup: { inline_keyboard: [[{ text: 'Бессрочно', callback_data: 'promo_no_date' }]] }});
     }
-    if (data.startsWith('promo_detail_')) {
-        const code = data.replace('promo_detail_', '');
-        const promo = loadPromos().find(p => p.code === code);
-        if (!promo) return bot.sendMessage(chatId, '❌ Промокод не найден');
-        return bot.sendMessage(chatId, promoFullText(promo), { parse_mode: 'HTML', reply_markup: PROMO_LIST_KEYBOARD });
-    }
 
-    // ===== MAILING =====
     if (data === 'mail_cancel')        { temp[chatId] = {}; return adminMenu(chatId); }
     if (data === 'mail_rewrite_text')  { temp[chatId].mailingStep = 'write_text'; return bot.sendMessage(chatId, '✍️ Напишите новый текст рассылки:'); }
     if (data === 'mail_back_to_image') { temp[chatId].photo = null; temp[chatId].mailingStep = 'wait_image'; return bot.sendMessage(chatId, '🖼 Отправьте новое изображение:', { reply_markup: { inline_keyboard: [[{ text: 'Без изображения', callback_data: 'mail_no_image' }]] }}); }
