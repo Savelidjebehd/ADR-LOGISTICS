@@ -1,0 +1,41 @@
+[
+  {
+    "code": "РЕСПЕКТ",
+    "limit": 5,
+    "used": 1,
+    "category": "Часы/украшения",
+    "expires": "20.08.2026",
+    "comment": "зачем",
+    "createdAt": 1772217608131,
+    "minSum": 0,
+    "discountType": "%",
+    "discountValue": 80,
+    "maxDiscount": null
+  },
+  {
+    "code": "ПРИВЕТ",
+    "limit": null,
+    "used": 0,
+    "category": "Часы",
+    "expires": null,
+    "comment": null,
+    "createdAt": 1773230625705,
+    "minSum": 0,
+    "discountType": "₽",
+    "discountValue": 10000,
+    "maxDiscount": null
+  },
+  {
+    "code": "ЗАЧЕМ",
+    "limit": 1,
+    "used": 0,
+    "category": "Обувь",
+    "expires": null,
+    "comment": null,
+    "createdAt": 1773233221306,
+    "minSum": 0,
+    "discountType": "%",
+    "discountValue": 50,
+    "maxDiscount": 1000
+  }
+]
